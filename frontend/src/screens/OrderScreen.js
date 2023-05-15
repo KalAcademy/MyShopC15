@@ -15,7 +15,8 @@ const OrderScreen = () => {
 
   const dispatch = useDispatch()
 
-  let client_Id;
+  const [client_Id, setClientId] = useState("")
+  let updatedOrder = {}
   const orderDetails = useSelector((state) => state.orderDetails)
   const { order, loading, error } = orderDetails
 
@@ -28,30 +29,24 @@ const OrderScreen = () => {
       return (Math.round(num * 100) / 100).toFixed(2)
     }
 
-    order.itemsPrice = addDecimals(
+    updatedOrder.itemsPrice = addDecimals(
       order.orderItems.reduce((acc, item) => acc + item.price * item.qty, 0)
     )
   }
 
   useEffect(() => {
+    
     const addPayPalScript = async () => {
       const { data: clientId } = await axios.get('/api/config/paypal')
-      client_Id = clientId
+      setClientId(clientId)
     }
+    addPayPalScript()
 
     if (!order || successPay) {
       dispatch({ type: ORDER_PAY_RESET })
       dispatch(getOrderDetails(orderId))
-    }else if (!order.isPaid) {
-      addPayPalScript()
     }
   }, [dispatch, orderId, successPay, order])
-
-  const successPaymentHandler = (paymentResult) => {
-    console.log(paymentResult)
-    dispatch(payOrder(orderId, paymentResult))
-  } 
-
 
   return loading ? (
     <Loader />
@@ -142,7 +137,7 @@ const OrderScreen = () => {
               <ListGroup.Item>
                 <Row>
                   <Col>Items</Col>
-                  <Col>${order.itemsPrice}</Col>
+                  <Col>${updatedOrder.itemsPrice}</Col>
                 </Row>
               </ListGroup.Item>
               <ListGroup.Item>
@@ -166,7 +161,7 @@ const OrderScreen = () => {
               {!order.isPaid && (
                 <ListGroup.Item>
                   {loadingPay && <Loader />}
-                    <PayPalScriptProvider options={{ "client-id": "AU3oneM1xU0sufhCmoXx-jhH9sVGpWNq7BPsK4lAw1B_q_t0TsisV_jCg2tTOibt3Bo_vxxLva11_0yA",
+                    <PayPalScriptProvider options={{ "client-id": client_Id,
                     components: "buttons",
                     currency: "USD" }}>
                         <PayPalButtons 
@@ -184,15 +179,13 @@ const OrderScreen = () => {
                             ],
                         })
                         .then((orderId) => {
-                            // Your code here after create the order
                             return orderId;
                         });
                 }}
                 onApprove={function (data, actions) {
                     return actions.order.capture().then(function () {
-                        // Your code here after capture the order
-                        console.log(data)
-    //dispatch(payOrder(orderId, paymentResult))
+                      console.log(data)
+                        dispatch(payOrder(orderId, data))
                     });
                 }}
                         />
